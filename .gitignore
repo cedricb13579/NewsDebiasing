@@ -1,0 +1,6 @@
+cross_modal_alignment/semantic_neighborhoods/models/
+cross_modal_alignment/semantic_neighborhoods/doc2vec_features.pickle
+cross_modal_alignment/semantic_neighborhoods/doc2vec_model.gensim
+cross_modal_alignment/semantic_neighborhoods/document_feats_knn.pickle
+cross_modal_alignment/changes.txt
+cross_modal_alignment/.cache/
