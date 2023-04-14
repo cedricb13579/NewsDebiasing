@@ -33,6 +33,8 @@ from train_utils import word_to_index, word_to_vector, _neighbors_pths2idx
 
 from train_loss import angular_loss, bias_loss
 
+from clip_utils import get_clip_components
+
 from dataset import MyDataset
 
 # TODO:
@@ -45,12 +47,16 @@ from dataset import MyDataset
 # - finish new loss function
 
 def main():
-    # vision_encoder, text_encoder, preprocess = get
+    vision_encoder, text_encoder, preprocess = get_clip_components()
     train_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('train'), batch_size=32, shuffle=True, num_workers=40)
     test_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('val'), batch_size=32, shuffle=False, num_workers=40)
     writer = SummaryWriter(f'models/l_i2t_l_sym_{sys.argv[1].replace(".","_")}_l_img_{sys.argv[2].replace(".","_")}_l_text_{sys.argv[3].replace(".","_")}/')
-    img_model = torch.nn.DataParallel(ImageModel()).cuda()
-    rnn_model = torch.nn.DataParallel(RecurrentModel()).cuda()
+    # img_model = torch.nn.DataParallel(ImageModel()).cuda()
+    # rnn_model = torch.nn.DataParallel(RecurrentModel()).cuda()
+    img_model = torch.nn.DataParallel(vision_encoder).cuda()
+    rnn_model = torch.nn.DataParallel(text_encoder).cuda()
+    img_model.train()
+    rnn_model.train()
     optimizer = torch.optim.Adam(params=itertools.chain(img_model.parameters(), rnn_model.parameters()), lr=0.0001, weight_decay=1e-5)
     ### LR SCHEDULER
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', verbose=True, patience=5)

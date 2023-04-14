@@ -5,4 +5,18 @@ python extract_doc2vec_vectors.py --dataset E://Research//Political_Image_Debias
 
 python knn_document_features.py --in_features doc2vec_features.pickle --out_features document_feats_knn.pickle
 
+# clean_dataset.py
+# This script basically just cuts out all but 2 sentences from the article text and saves it back to a file
+# Don't use this one
+python clean_dataset.py --dataset  E://Research//Political_Image_Debiasing//dataset//mturk_db.pickle --mturk
+# Use the following ones instead
+# This one takes the first 5000 samples from each topic for each political leaning (2*20*5000 = 200000 samples)
+python clean_dataset.py --dataset  E://Research//Political_Image_Debiasing//dataset//dataset_metadata.pickle --max_samples_per_topic 5000
+# This one runs for every sample (~1.8M). Cuts the datafile from 12.5GB to ~1GB
+python clean_dataset.py --dataset  E://Research//Political_Image_Debiasing//dataset//dataset_metadata.pickle
+
+# dataset_to_csv.py
+# This script condenses the .pickle dataset to a csv file
+python dataset_to_csv.py --dataset E://Research//Political_Image_Debiasing//dataset//dataset_metadata_clean_5000.pickle
+
 https://radimrehurek.com/gensim/models/doc2vec.html
