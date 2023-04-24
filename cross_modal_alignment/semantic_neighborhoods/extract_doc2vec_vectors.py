@@ -41,11 +41,17 @@ class Container:
         print("Loaded Dataset.")
         train_pths = set(pickle.load(open(args.split_paths, 'rb'))['train'])
         print("Loaded Split Paths.")
-        dataset = [(pth, info["Input.ARTICLE_TEXT"]) for pth, info in dataset if pth in train_pths and len(info["Input.ARTICLE_TEXT"])>0]
-        print(f'Len deduped dataset = {len(dataset)}')
+        # for mturk_db.pickle
+        # dataset = [(pth, info["Input.ARTICLE_TEXT"]) for pth, info in dataset if pth in train_pths and len(info["Input.ARTICLE_TEXT"])>0]
+        # for full dataset
+        tuple_dataset = []
+        for leaning in dataset.keys():
+            for topic in dataset[leaning].keys():
+                tuple_dataset.extend([(info["local_path"], info["content_text"]) for info in dataset[leaning][topic] if info["local_path"] in train_pths and len(info["content_text"])>0])
+        print(f'Len deduped dataset = {len(tuple_dataset)}')
         self.d2v = Doc2Vec.load(args.doc2vec_model)
         pool = Pool(processes=args.num_workers)
-        pth_to_features = list(tqdm(pool.imap_unordered(self.process_text, dataset, chunksize=1), total=len(dataset)))
+        pth_to_features = list(tqdm(pool.imap_unordered(self.process_text, tuple_dataset, chunksize=1), total=len(tuple_dataset)))
         pool.close()
         pth_to_features = dict([(pth, features.ravel()) for pth, features in pth_to_features if features is not None])
         pickle.dump(pth_to_features, open(args.output_path, 'wb'))

@@ -45,7 +45,16 @@ def main():
     train_pths = set(pickle.load(open(args.split_paths, 'rb'))['train'])
     print("Loaded Split Paths.")
     pool = Pool(processes=args.num_workers)
-    all_train_text = [info["Input.ARTICLE_TEXT"] for pth, info in dataset if pth in train_pths and len(info["Input.ARTICLE_TEXT"])>0]
+    # for mturk_db.pickle
+    # all_train_text = [info["Input.ARTICLE_TEXT"] for pth, info in dataset if pth in train_pths and len(info["Input.ARTICLE_TEXT"])>0]
+    # for full dataset
+    all_train_text = []
+    for leaning in dataset.keys():
+        for topic in dataset[leaning].keys():
+            # print(dataset[leaning][topic])
+            all_train_text.extend([info["content_text"] for info in dataset[leaning][topic] if info["local_path"] in train_pths and len(info["content_text"])>0])
+            # break
+        # break
     documents = list(tqdm(pool.imap(convert_text, all_train_text, chunksize=1), total=len(all_train_text)))
     pool.close()
     print("Tokenized Documents.")

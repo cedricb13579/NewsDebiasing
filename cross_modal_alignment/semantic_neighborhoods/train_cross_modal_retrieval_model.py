@@ -28,7 +28,7 @@ from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import normalize
 from multiprocessing import Pool
 
-from train_utils import get_db, convert_text, get_doc2vec_neighbors
+from train_utils import get_db, convert_text
 from train_utils import word_to_index, word_to_vector, _neighbors_pths2idx
 
 from train_loss import angular_loss, bias_loss
@@ -48,8 +48,11 @@ from dataset import MyDataset
 
 def main():
     vision_encoder, text_encoder, preprocess = get_clip_components()
-    train_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('train'), batch_size=32, shuffle=True, num_workers=40)
-    test_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('val'), batch_size=32, shuffle=False, num_workers=40)
+    print("Getting train loader.")
+    train_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('train', "E://Research//Political_Image_Debiasing//dataset//dataset_metadata_clean_5000.pickle"), batch_size=4, shuffle=True, num_workers=4)
+    print("Getting val loader.")
+    test_dataloader = torch.utils.data.DataLoader(dataset=MyDataset('val', "E://Research//Political_Image_Debiasing//dataset//dataset_metadata_clean_5000.pickle"), batch_size=4, shuffle=False, num_workers=4)
+    print("Done loading datasets")
     writer = SummaryWriter(f'models/l_i2t_l_sym_{sys.argv[1].replace(".","_")}_l_img_{sys.argv[2].replace(".","_")}_l_text_{sys.argv[3].replace(".","_")}/')
     # img_model = torch.nn.DataParallel(ImageModel()).cuda()
     # rnn_model = torch.nn.DataParallel(RecurrentModel()).cuda()
@@ -72,25 +75,31 @@ def main():
                 itr += 1
                 optimizer.zero_grad()
                 images = images.float().cuda()
+                print("after images to cuda")
                 image_projections = img_model(images) # Batch size x 256
+                print("after images projection")
                 neighbor_imgs = neighbor_imgs.float().cuda()
                 neighbor_imgs_projections = img_model(neighbor_imgs)
+                print("after neighbors projection")
 
                 neighbor_sentences = [torch.from_numpy(MyDataset.result_db[path]).long() for path in neighbor_pths]
                 neighbor_lengths = torch.LongTensor([torch.numel(item) for item in neighbor_sentences])
                 neighbor_sentences = torch.nn.utils.rnn.pad_sequence(sequences=neighbor_sentences, batch_first=True, padding_value=word_to_index['<!END!>']).cuda()
-
+                print("after neighbor sentences")
                 positive_sentences = [torch.from_numpy(MyDataset.result_db[path]).long() for path in paths]
                 pos_lengths = torch.LongTensor([torch.numel(item) for item in positive_sentences])
                 positive_sentences = torch.nn.utils.rnn.pad_sequence(sequences=positive_sentences, batch_first=True, padding_value=word_to_index['<!END!>']).cuda()
-                
+                print("after positive sentences")
                 negative_sentences = [torch.from_numpy(MyDataset.result_db[path]).long() for path in random.sample(train_dataloader.dataset.dataset, len(positive_sentences))]
                 neg_lengths = torch.LongTensor([torch.numel(item) for item in negative_sentences])
                 negative_sentences = torch.nn.utils.rnn.pad_sequence(sequences=negative_sentences, batch_first=True, padding_value=word_to_index['<!END!>']).cuda()
-
+                print("after negative sentences")
                 neighbor_projections = rnn_model(neighbor_sentences, neighbor_lengths)
+                print("after neighbor sentence projections")
                 positive_projections = rnn_model(positive_sentences, pos_lengths)
+                print("after positive sentence projections")
                 negative_projections = rnn_model(negative_sentences, neg_lengths)
+                print("after negative sentence projections")
 
                 # Baseline loss
                 # Compute n-pairs angular loss
@@ -98,6 +107,7 @@ def main():
                 positive_projections_np = torch.repeat_interleave(positive_projections, len(negative_projections), dim=0)
                 negative_projections_np = negative_projections.repeat(len(negative_projections), 1)
                 l_i2t = angular_loss(anchors=image_projections_np, positives=positive_projections_np, negatives=negative_projections_np)
+                print("after n-pairs angular loss")
 
                 # L_img - Image anchor, Neighbor img anchor, negative image neighbors. Angular Npairs
                 image_projections_np = torch.repeat_interleave(image_projections, len(negative_projections), dim=0)
@@ -105,12 +115,14 @@ def main():
                 permute_idxs = torch.from_numpy(np.asarray([j if i != j else (j+1) % len(image_projections) for i in range(len(image_projections)) for j in range(len(image_projections))]))
                 image_projections_np2 = image_projections[permute_idxs,...]
                 l_img = angular_loss(anchors=image_projections_np, positives=neighbor_imgs_projections_np, negatives=image_projections_np2)
+                print("after image angular loss")
 
                 # L_text - Angular npairs
                 positive_projections_np = torch.repeat_interleave(positive_projections, len(negative_projections), dim=0)
                 neighbor_projections_np = torch.repeat_interleave(neighbor_projections, len(negative_projections), dim=0)
                 negative_projections_np = negative_projections.repeat(len(negative_projections), 1)
                 l_text = angular_loss(anchors=positive_projections_np, positives=neighbor_projections_np, negatives=negative_projections_np)
+                print("after text angular loss")
 
                 # Symmetric angular loss npairs (text to image)
                 positive_projections_np = torch.repeat_interleave(positive_projections, len(image_projections), dim=0)
@@ -118,6 +130,7 @@ def main():
                 permute_idxs = torch.from_numpy(np.asarray([j if i != j else (j+1) % len(image_projections) for i in range(len(image_projections)) for j in range(len(image_projections))]))
                 image_projections_np2 = image_projections[permute_idxs,...]
                 l_sym = angular_loss(anchors=positive_projections_np, positives=image_projections_np, negatives=image_projections_np2)
+                print("after adkjlsfhkajsjdhfjklhasdfj angular loss")
 
                 # Bias loss scores
                 
