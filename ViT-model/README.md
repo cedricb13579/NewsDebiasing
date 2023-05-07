@@ -1,0 +1,1 @@
+To run the ViT model, simply add images in the trim_imgs directory. Images should be named with the same name as name in the img_filepath column of the trim-dataset.csv. The code is available in Vit-model.ipynb. 
